@@ -1,0 +1,38 @@
+services:
+  app:
+    build: .
+    container_name: app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - MASTER_DB_HOST=db
+      - MASTER_DB_PORT=3306
+      - MASTER_DB_USER=myuser
+      - MASTER_DB_PASSWORD=mypassword
+      - MASTER_DB_NAME=mydb
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+
+  db:
+    image: mariadb:11
+    container_name: db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: mydb
+      MARIADB_USER: myuser
+      MARIADB_PASSWORD: mypassword
+      MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: true
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u $${MARIADB_USER} --password=$${MARIADB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+    db_data:

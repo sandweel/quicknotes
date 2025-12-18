@@ -1,0 +1,9 @@
+STOP SLAVE;
+
+CHANGE MASTER TO
+  MASTER_HOST='master',
+  MASTER_USER='myuser',
+  MASTER_PASSWORD='mypassword',
+  MASTER_USE_GTID=slave_pos;
+
+START SLAVE;

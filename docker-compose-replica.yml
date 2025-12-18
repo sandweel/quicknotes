@@ -1,0 +1,75 @@
+services:
+  app:
+    build: .
+    container_name: app
+    depends_on:
+      master:
+        condition: service_healthy
+    environment:
+      - MASTER_DB_HOST=master
+      - MASTER_DB_PORT=3306
+      - MASTER_DB_USER=myuser
+      - MASTER_DB_PASSWORD=mypassword
+      - MASTER_DB_NAME=mydb
+      - SLAVE_DB_HOST=slave
+      - SLAVE_DB_PORT=3306
+      - SLAVE_DB_USER=myuser
+      - SLAVE_DB_PASSWORD=mypassword
+      - SLAVE_DB_NAME=mydb
+
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+
+  master:
+    image: mariadb:11
+    container_name: master
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: mydb
+      MARIADB_USER: myuser
+      MARIADB_PASSWORD: mypassword
+      MARIADB_ROOT_PASSWORD: rootpass
+    command: >
+      --server-id=1
+      --log-bin=mysql-bin
+      --gtid-strict-mode=ON
+      --log-slave-updates=ON
+    volumes:
+      - master_data:/var/lib/mysql
+      - ./master-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  slave:
+    image: mariadb:11
+    container_name: slave
+    restart: unless-stopped
+    depends_on:
+      master:
+        condition: service_healthy
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+    command: >
+      --server-id=2
+      --relay-log=relay-bin
+      --gtid-strict-mode=ON
+      --log-slave-updates=ON
+    volumes:
+      - slave_data:/var/lib/mysql
+      - ./slave-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  master_data:
+  slave_data:

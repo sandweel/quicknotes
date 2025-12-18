@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        nav.teal.darken-2, .btn.teal {
+            background-color: #00695c !important;
+        }
+        nav.teal.darken-2 .brand-logo, nav.teal.darken-2 a {
+            color: #fff;
+        }
+        .btn.teal:hover {
+            background-color: #004d40 !important;
+        }
+    </style>
+</head>
+<body>
+<nav class="teal darken-2">
+    <div class="nav-wrapper container">
+        <a href="#" class="brand-logo">Tasks</a>
+    </div>
+</nav>
+<div class="container" style="margin-top: 50px;">
+    <div class="row">
+        <div class="col s12 m6 offset-m3">
+            <div class="card">
+                <div class="card-content">
+                    <span class="card-title">Enter your name</span>
+                    {% if error %}
+                        <div class="card red lighten-4" style="margin-top: 20px;">
+                            <div class="card-content red-text">
+                                <i class="material-icons left">error</i>{{ error }}
+                            </div>
+                        </div>
+                    {% endif %}
+                    <form method="post" style="margin-top: 20px;">
+                        <div class="input-field">
+                            <input id="username" name="username" type="text" required autofocus>
+                            <label for="username">Username</label>
+                        </div>
+                        <div class="input-field">
+                            <input id="password" name="password" type="password" required>
+                            <label for="password">Password (min 5 characters)</label>
+                        </div>
+                        <div class="card-action">
+                            <button type="submit" class="btn waves-effect waves-light teal">
+                                <i class="material-icons left">login</i>Login / Register
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        M.updateTextFields();
+    });
+</script>
+</body>
+</html>
+

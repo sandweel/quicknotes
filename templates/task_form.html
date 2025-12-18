@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% if task %}Edit task{% else %}New task{% endif %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <style>
+        nav.teal.darken-2, .btn.teal {
+            background-color: #00695c !important;
+        }
+        nav.teal.darken-2 .brand-logo, nav.teal.darken-2 a {
+            color: #fff;
+        }
+        .btn.teal:hover {
+            background-color: #004d40 !important;
+        }
+    </style>
+</head>
+<body>
+<nav class="teal darken-2">
+    <div class="nav-wrapper container">
+        <a href="{{ url_for('index') }}" class="brand-logo">{% if task %}Edit task{% else %}New task{% endif %}</a>
+        <ul class="right">
+            <li><span style="padding: 0 15px; line-height: 64px;">{{ user_id }}</span></li>
+            <li><a href="{{ url_for('index') }}"><i class="material-icons left">arrow_back</i>Back to list</a></li>
+        </ul>
+    </div>
+</nav>
+<div class="container" style="margin-top: 20px;">
+    {% if error %}
+        <div class="row">
+            <div class="col s12">
+                <div class="card red lighten-4">
+                    <div class="card-content red-text">
+                        <i class="material-icons left">error</i>{{ error }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    <div class="row">
+        <div class="col s12 m8 offset-m2">
+            <div class="card">
+                <div class="card-content">
+                    <form method="post">
+                        <div class="input-field">
+                            <input id="title" name="title" type="text" required value="{{ task.title if task else '' }}">
+                            <label for="title">Title</label>
+                        </div>
+                        <div class="input-field">
+                            <textarea id="description" name="description" class="materialize-textarea">{{ task.description if task else '' }}</textarea>
+                            <label for="description">Description</label>
+                        </div>
+                        <div class="input-field">
+                            <input id="priority" name="priority" type="number" value="{{ task.priority if task else 0 }}">
+                            <label for="priority">Priority</label>
+                        </div>
+                        <div class="input-field">
+                            <input id="due_date" name="due_date" type="text" placeholder="Deadline"
+                                   value="{% if task and task.due_date %}{{ task.due_date.strftime('%Y-%m-%d %H:%M') }}{% endif %}">
+                            <label for="due_date">Due date</label>
+                        </div>
+                        {% if task %}
+                            <p>
+                                <label>
+                                    <input type="checkbox" name="completed" {% if task.completed %}checked{% endif %}>
+                                    <span>Completed</span>
+                                </label>
+                            </p>
+                        {% endif %}
+                        <div class="card-action">
+                            <button type="submit" class="btn waves-effect waves-light teal">
+                                <i class="material-icons left">save</i>Save
+                            </button>
+                            <a href="{{ url_for('index') }}" class="btn waves-effect waves-light grey">
+                                <i class="material-icons left">cancel</i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        M.updateTextFields();
+        var dueDateInput = document.getElementById('due_date');
+        var defaultDate = dueDateInput.value || null;
+        
+        var fp = flatpickr(dueDateInput, {
+            enableTime: true,
+            dateFormat: "Y-m-d H:i",
+            time_24hr: true,
+            defaultDate: defaultDate,
+            locale: {
+                firstDayOfWeek: 1
+            },
+            onReady: function(selectedDates, dateStr, instance) {
+                var calendar = instance.calendarContainer;
+                var timeContainer = calendar.querySelector('.flatpickr-time');
+                if (timeContainer) {
+                    var nowButton = document.createElement('button');
+                    nowButton.type = 'button';
+                    nowButton.className = 'flatpickr-now-button';
+                    nowButton.textContent = 'Now';
+                    nowButton.style.cssText = 'margin-left: 10px; padding: 5px 10px; background-color: #00695c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;';
+                    nowButton.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var now = new Date();
+                        var currentDate = instance.selectedDates[0] || new Date();
+                        var newDate = new Date(currentDate);
+                        newDate.setHours(now.getHours());
+                        newDate.setMinutes(now.getMinutes());
+                        newDate.setSeconds(0);
+                        newDate.setMilliseconds(0);
+                        instance.setDate(newDate, false);
+                        instance.jumpToDate(newDate);
+                    });
+                    timeContainer.appendChild(nowButton);
+                }
+            }
+        });
+    });
+</script>
+</body>
+</html>
+
+

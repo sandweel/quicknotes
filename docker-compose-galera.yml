@@ -1,0 +1,187 @@
+services:
+  app:
+    build: .
+    container_name: app
+    depends_on:
+      galera1:
+        condition: service_healthy
+        restart: true
+    environment:
+      - MASTER_DB_HOST=galera1
+      - MASTER_DB_PORT=3306
+      - MASTER_DB_USER=myuser
+      - MASTER_DB_PASSWORD=mypassword
+      - MASTER_DB_NAME=mydb
+    ports:
+      - "5000:5000"
+    networks:
+      - galera_net
+    volumes:
+      - .:/app
+
+  galera1:
+    image: mariadb:11
+    container_name: galera1
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    command: >
+      --wsrep-on=ON
+      --wsrep-provider=/usr/lib/libgalera_smm.so
+      --wsrep-cluster-name=galera_cluster
+      --wsrep-cluster-address=gcomm://
+      --wsrep-node-address=galera1
+      --wsrep-node-name=galera1
+      --wsrep-sst-method=mariabackup
+      --wsrep-sst-auth="sstuser:sstpass"
+      --binlog-format=ROW
+    networks:
+      - galera_net
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - galera1_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  galera2:
+    image: mariadb:11
+    container_name: galera2
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    command: >
+      --wsrep-on=ON
+      --wsrep-provider=/usr/lib/libgalera_smm.so
+      --wsrep-cluster-name=galera_cluster
+      --wsrep-cluster-address=gcomm://galera1,galera2,galera3,galera4,galera5
+      --wsrep-node-address=galera2
+      --wsrep-node-name=galera2
+      --wsrep-sst-method=mariabackup
+      --wsrep-sst-auth="sstuser:sstpass"
+      --binlog-format=ROW
+    depends_on:
+      - galera1
+    networks:
+      - galera_net
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - galera2_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  galera3:
+    image: mariadb:11
+    container_name: galera3
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    command: >
+      --wsrep-on=ON
+      --wsrep-provider=/usr/lib/libgalera_smm.so
+      --wsrep-cluster-name=galera_cluster
+      --wsrep-cluster-address=gcomm://galera1,galera2,galera3,galera4,galera5
+      --wsrep-node-address=galera3
+      --wsrep-node-name=galera3
+      --wsrep-sst-method=mariabackup
+      --wsrep-sst-auth="sstuser:sstpass"
+      --binlog-format=ROW
+    depends_on:
+      - galera1
+    networks:
+      - galera_net
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - galera3_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  galera4:
+    image: mariadb:11
+    container_name: galera4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    command: >
+      --wsrep-on=ON
+      --wsrep-provider=/usr/lib/libgalera_smm.so
+      --wsrep-cluster-name=galera_cluster
+      --wsrep-cluster-address=gcomm://galera1,galera2,galera3,galera4
+      --wsrep-node-address=galera4
+      --wsrep-node-name=galera4
+      --wsrep-sst-method=mariabackup
+      --wsrep-sst-auth="sstuser:sstpass"
+      --binlog-format=ROW
+    depends_on:
+      - galera1
+    networks:
+      - galera_net
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - galera4_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  galera5:
+    image: mariadb:11
+    container_name: galera5
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: mydb
+      MYSQL_USER: myuser
+      MYSQL_PASSWORD: mypassword
+    command: >
+      --wsrep-on=ON
+      --wsrep-provider=/usr/lib/libgalera_smm.so
+      --wsrep-cluster-name=galera_cluster
+      --wsrep-cluster-address=gcomm://galera1,galera2,galera3,galera4,galera5
+      --wsrep-node-address=galera5
+      --wsrep-node-name=galera5
+      --wsrep-sst-method=mariabackup
+      --wsrep-sst-auth="sstuser:sstpass"
+      --binlog-format=ROW
+    depends_on:
+      - galera1
+    networks:
+      - galera_net
+    volumes:
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - galera5_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -uroot -prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+networks:
+  galera_net:
+
+volumes:
+  galera1_data:
+  galera2_data:
+  galera3_data:
+  galera4_data:
+  galera5_data:

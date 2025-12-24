@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quicknote-app-blue
+  labels:
+    app: quicknote
+    version: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: quicknote
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: quicknote
+        version: blue
+    spec:
+      imagePullSecrets:
+      - name: aws-ecr-secret
+      containers:
+      - name: app
+        image: 943818143480.dkr.ecr.us-east-1.amazonaws.com/quicknote:manual
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: MASTER_DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-secret
+              key: db-user
+        - name: MASTER_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-secret
+              key: db-password
+        - name: MASTER_DB_HOST
+          value: "mariadb"
+        - name: MASTER_DB_PORT
+          value: "3306"
+        - name: MASTER_DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-secret
+              key: db-name
+        - name: FLASK_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: flask-secret-key
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /login
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /login
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+---

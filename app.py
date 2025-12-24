@@ -112,7 +112,7 @@ def create_app():
         if should_force_master():
             db_logger.debug("Using MASTER for read (write consistency window)")
             return MasterSession()
-        
+
         try:
             db_logger.debug("Using SLAVE for read")
             session = SlaveSession()
@@ -129,8 +129,14 @@ def create_app():
 
     @app.after_request
     def log_request(response):
-        ips = request.headers.get("X-Forwarded-For", request.remote_addr)
-        ips = ", ".join([ip.strip() for ip in ips.split(",")])
+        # Get real client IP from headers (set by nginx ingress via PROXY protocol from HAProxy)
+        # Priority: CF-Connecting-IP (Cloudflare) > X-Real-IP (nginx) > X-Forwarded-For > remote_addr
+        client_ip = request.headers.get("CF-Connecting-IP") or \
+                   request.headers.get("X-Real-IP") or \
+                   (request.headers.get("X-Forwarded-For", "").split(",")[0].strip() if request.headers.get("X-Forwarded-For") else None) or \
+                   request.remote_addr
+
+        ips = client_ip
         now_str = datetime.now(timezone.utc).strftime("%d/%b/%Y:%H:%M:%S %z")
         method = request.method
         path = request.full_path if request.query_string else request.path

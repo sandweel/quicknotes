@@ -11,6 +11,9 @@ infra/*.tfstate
 infra/*.tfstate.backup
 infra/*.tfstate.*.backup
 
+# K8s
+kubernetes/secrets.yaml
+
 # Docker
 *.env
 *.dockerignore

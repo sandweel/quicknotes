@@ -1,6 +1,10 @@
 pipeline {
-    agent any
-    
+    agent {
+        docker {
+            image 'python:3.11'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'
+        }
+    }
     environment {
         ECR_REGISTRY = '943818143480.dkr.ecr.us-east-1.amazonaws.com'
         IMAGE_NAME = 'quicknote'
@@ -10,6 +14,19 @@ pipeline {
     }
     
     stages {
+        stage('Prepare builder') {
+            steps {
+                sh """
+                    apt-get update && apt-get install -y curl unzip sudo docker.io && rm -rf /var/lib/apt/lists/*
+
+                    curl -LO "https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+                    rm kubectl
+                    
+                    pip install awscli
+                """
+            }
+        }
         stage('Build and Push') {
             steps {
                 withCredentials([
@@ -73,7 +90,9 @@ pipeline {
         
         stage('Health Check') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')]) {
+                withCredentials([
+                    file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')
+                ]) {
                     script {
                         sh """
                             kubectl -n ${NAMESPACE} wait --for=condition=ready pod \
@@ -81,8 +100,6 @@ pipeline {
                                 --context=${KUBECTL_CONTEXT} \
                                 --timeout=m
                         """
-                        
-                        // sh "curl -f https://${DOMAIN}/login || exit 1"
                     }
                 }
             }

@@ -1,0 +1,117 @@
+pipeline {
+    agent any
+    
+    environment {
+        ECR_REGISTRY = '943818143480.dkr.ecr.us-east-1.amazonaws.com'
+        IMAGE_NAME = 'quicknote'
+        IMAGE_TAG = "build-${BUILD_NUMBER}"
+        KUBECTL_CONTEXT = 'kubernetes-admin@kubernetes'
+        NAMESPACE = 'quicknote'
+    }
+    
+    stages {
+        stage('Build and Push') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'QN_AWS_ID', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'QN_AWS_SECRET', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    script {
+                        sh """
+                            aws sts get-caller-identity
+
+                            aws ecr get-login-password --region us-east-1 | \
+                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                            
+                            docker build -t ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                            docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Determine Active Version') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')]) {
+                    script {
+                        env.ACTIVE_VERSION = sh(
+                            script: "kubectl -n ${NAMESPACE} get svc quicknote-app -o jsonpath='{.spec.selector.version}' --context=${KUBECTL_CONTEXT}",
+                            returnStdout: true
+                        ).trim()
+                        
+                        if (env.ACTIVE_VERSION == 'blue') {
+                            env.INACTIVE_VERSION = 'green'
+                        } else {
+                            env.INACTIVE_VERSION = 'blue'
+                        }
+                        
+                        echo "Active version: ${env.ACTIVE_VERSION}"
+                        echo "Deploying to: ${env.INACTIVE_VERSION}"
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy to Inactive Version') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')]) {
+                    script {
+                        sh """
+                            kubectl -n ${NAMESPACE} set image deployment/quicknote-app-${env.INACTIVE_VERSION} \
+                                app=${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} \
+                                --context=${KUBECTL_CONTEXT}
+                            
+                            kubectl -n ${NAMESPACE} rollout status deployment/quicknote-app-${env.INACTIVE_VERSION} \
+                                --context=${KUBECTL_CONTEXT} \
+                                --timeout=1m
+                        """
+                    }
+                }
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')]) {
+                    script {
+                        sh """
+                            kubectl -n ${NAMESPACE} wait --for=condition=ready pod \
+                                -l app=quicknote,version=${env.INACTIVE_VERSION} \
+                                --context=${KUBECTL_CONTEXT} \
+                                --timeout=m
+                        """
+                        
+                        // sh "curl -f https://${DOMAIN}/login || exit 1"
+                    }
+                }
+            }
+        }
+        
+        stage('Switch Traffic') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')]) {
+                    script {
+                        sh """
+                            kubectl -n ${NAMESPACE} patch service quicknote-app \
+                                -p '{\"spec\":{\"selector\":{\"version\":\"${env.INACTIVE_VERSION}\"}}}' \
+                                --context=${KUBECTL_CONTEXT}
+                        """
+                        
+                        echo "✅ Traffic switched to ${env.INACTIVE_VERSION} version"
+                        echo "Previous version (${env.ACTIVE_VERSION}) kept running for rollback"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        success {
+            echo "✅ Deployment successful: ${IMAGE_TAG}"
+        }
+        failure {
+            echo "❌ Deployment failed. Previous version (${env.ACTIVE_VERSION}) is still active."
+        }
+    }
+}

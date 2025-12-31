@@ -11,12 +11,15 @@ pipeline {
         IMAGE_TAG = "build-${BUILD_NUMBER}"
         KUBECTL_CONTEXT = 'kubernetes-admin@kubernetes'
         NAMESPACE = 'quicknote'
+        AWS_ACCESS_KEY_ID = credentials('QN_AWS_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('QN_AWS_SECRET')
+        K8S_ECR_SECRET = 'aws-ecr-secret'
     }
     
     stages {
         stage('Prepare builder') {
             steps {
-                sh """
+                sh '''
                     apt-get update && apt-get install -y curl unzip sudo docker.io && rm -rf /var/lib/apt/lists/*
 
                     curl -LO "https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -24,26 +27,17 @@ pipeline {
                     rm kubectl
                     
                     pip install awscli
-                """
+                '''
             }
         }
         stage('Build and Push') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'QN_AWS_ID', variable: 'AWS_ACCESS_KEY_ID'),
-                    string(credentialsId: 'QN_AWS_SECRET', variable: 'AWS_SECRET_ACCESS_KEY')
-                ]) {
-                    script {
-                        sh """
-                            aws sts get-caller-identity
-
-                            aws ecr get-login-password --region us-east-1 | \
-                            docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                            
-                            docker build -t ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
-                            docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                        """
-                    }
+                script {
+                    sh '''
+                    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    docker build -t ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                    '''
                 }
             }
         }
@@ -65,6 +59,23 @@ pipeline {
                         
                         echo "Active version: ${env.ACTIVE_VERSION}"
                         echo "Deploying to: ${env.INACTIVE_VERSION}"
+                    }
+                }
+            }
+        }
+        stage('Update AWS ECR K8S secret') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-quicknote', variable: 'KUBECONFIG')]) {
+                    script {
+                        sh '''
+                        AWS_ECR_PASSWORD=$(aws ecr get-login-password --region us-east-1)
+                        kubectl -n ${NAMESPACE} create secret docker-registry ${K8S_ECR_SECRET} \
+                            --docker-server=${ECR_REGISTRY} \
+                            --docker-username=AWS \
+                            --docker-password=$AWS_ECR_PASSWORD \
+                            --dry-run=client -o yaml| \
+                            kubectl -n ${NAMESPACE} apply -f -
+                        '''
                     }
                 }
             }
@@ -98,7 +109,7 @@ pipeline {
                             kubectl -n ${NAMESPACE} wait --for=condition=ready pod \
                                 -l app=quicknote,version=${env.INACTIVE_VERSION} \
                                 --context=${KUBECTL_CONTEXT} \
-                                --timeout=m
+                                --timeout=1m
                         """
                     }
                 }
